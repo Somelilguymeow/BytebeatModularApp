@@ -1,5 +1,5 @@
 /* ==========================================================================
-   🕹️ RE-ALIGNED FRONTEND USER INTERFACE INTERACTION ENGINE - SECTION 1
+   🕹️ FRONTEND INTERACTION ENGINE - SECTION 1 (TEXT BOXES & VST CABLES FIXED)
    ========================================================================== */
 
 // Tracks real-time cursor screen properties globally across the workspace canvas
@@ -72,21 +72,22 @@ function createVstModuleBox(id) {
     const box = document.createElement('div');
     box.className = 'node-box'; box.id = `mod_${id}`;
     box.style.left = `80px`; box.style.top = `140px`;
-    box.style.width = "180px";
+    box.style.width = "160px"; // Retain your standard, perfect 160px width rule
+    box.style.height = "120px"; // Retain your standard 120px height profile
     box.style.borderColor = "#ffcc00";
 
-    // Re-aligned custom class-based selectors on elements so cable lookups connect precisely
+    // Standardized structural elements to map index.html patch cable coordinates perfectly
     box.innerHTML = `
         <div class="node-header" style="border-color:#ffcc00;"><span class="node-title-text" style="color:#ffcc00;">VST HOST #${id}</span></div>
-        <div style="font-size:12px; text-align:center; margin-top:12px; pointer-events: auto;">
-            <button class="vst-load-trigger-btn" onclick="alert('To load native C++ binary .vst3/.dll files, Electron requires a native Node addon module wrapper path like node-vst-host compiled via node-gyp.')" style="font-size:12px!important; height:24px!important; border-color:#ffcc00!important; color:#ffcc00!important; pointer-events:auto!important;">📁 LOAD .VST3</button>
-        </div>
-        <div class="ports-container" style="height: calc(100% - 65px);">
-            <div class="inputs-column" style="top:49px;">
+        <div class="ports-container">
+            <div class="inputs-column">
                 <div><span class="port-dot" id="port-in-${id}-0" data-type="input" data-node="${id}" data-index="0"></span> in1</div>
             </div>
-            <div class="outputs-column" style="top:49px;">
+            <div class="outputs-column">
                 <div>out <span class="port-dot" id="port-out-${id}" data-type="output" data-node="${id}" data-index="0"></span></div>
+            </div>
+            <div style="position:absolute; bottom:5px; left:0; width:100%; text-align:center;">
+                <button class="vst-load-trigger-btn" onclick="alert('To load native C++ binary .vst3/.dll files, Electron requires a native Node addon module wrapper path like node-vst-host compiled via node-gyp.')" style="font-size:12px!important; height:22px!important; line-height:12px!important; padding:2px 4px!important; border-color:#ffcc00!important; color:#ffcc00!important; pointer-events:auto!important;">LOAD VST</button>
             </div>
         </div>
     `;
@@ -95,8 +96,16 @@ function createVstModuleBox(id) {
     if (typeof resizeCanvas === 'function') resizeCanvas();
 }
 /* ==========================================================================
-   🕹️ RE-ALIGNED FRONTEND USER INTERFACE INTERACTION ENGINE - SECTION 2
+   🕹️ FRONTEND USER INTERFACE INTERACTION ENGINE - SECTION 2
    ========================================================================== */
+
+// 🛠️ FIX FOR TYPE BOX LOCKDOWNS: Forces typing focus to bypass parent e.preventDefault() blocks
+document.addEventListener('mousedown', (e) => {
+    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') {
+        e.stopPropagation(); // Stop drag clicks from intercepting text boxes
+        e.target.focus();   // Force standard browser input selection cursor to wake up
+    }
+}, true);
 
 document.getElementById('gridSnapToggleBtn').addEventListener('click', () => {
     snapGridActive = !snapGridActive;
@@ -160,7 +169,6 @@ if (workspace) {
     workspace.addEventListener('mousedown', (e) => {
         if (!e.target.classList.contains('port-dot') || e.button !== 0) return;
         const dot = e.target;
-        // Supports flexible multi-output channel grids and direct strings lookup parsing
         let indexAttribute = dot.getAttribute('data-index');
         let parsedIndexValue = indexAttribute ? parseInt(indexAttribute) : 0;
         activeWireSource = { type: dot.getAttribute('data-type'), node: dot.getAttribute('data-node'), index: parsedIndexValue };
@@ -186,18 +194,13 @@ window.addEventListener('mouseup', (e) => {
             }
         }
     }
-    const anchorDot = activeWireSource.type === 'output' ? 
-        (document.getElementById(`port-out-${activeWireSource.node}-${activeWireSource.index}`) || document.getElementById(`port-out-${activeWireSource.node}`)) : 
-        document.getElementById(`port-in-${activeWireSource.node}-${activeWireSource.index}`);
+    const anchorDot = activeWireSource.type === 'output' ? document.getElementById(`port-out-${activeWireSource.node}`) : document.getElementById(`port-in-${activeWireSource.node}-${activeWireSource.index}`);
     if (anchorDot) anchorDot.style.background = '#000';
     activeWireSource = null;
 });
 
-/* 🕹️ UNBREAKABLE DRAG ENGINE INTERACTION OVERRIDES
-   - FIX: Explicit form exceptions allow click triggers to pass natively straight into inputs! */
 function makeDraggable(el) {
     el.onmousedown = (e) => {
-        // Excludes interactions entirely if user hits a selection list drop, textarea field or nested click button
         if (e.target.tagName === 'BUTTON' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA' || e.target.classList.contains('port-dot') || e.target.closest('#moduleContextMenu') || isSpacebarPressed || e.target.id === 'canvasTermResizeHandle' || e.target.classList.contains('vst-load-trigger-btn')) return;
         if (e.target === workspace || e.target.tagName === 'INPUT') return; 
         
