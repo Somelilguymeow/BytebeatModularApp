@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>📟 MODULE COMPILER NODE</title>
+    <style>
+        @import url('https://googleapis.com');
+        
+        body {
+            background: #000;
+            color: #33ff33;
+            font-family: 'VT323', monospace;
+            font-size: 20px;
+            padding: 15px;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .terminal-header {
+            font-size: 22px;
+            font-weight: bold;
+            border-bottom: 4px double #33ff33;
+            padding-bottom: 5px;
+            margin-bottom: 12px;
+            letter-spacing: 1px;
+        }
+
+        textarea {
+            width: 100%;
+            height: calc(100vh - 120px);
+            background: #050505;
+            color: #33ff33;
+            border: 4px solid #33ff33;
+            font-family: 'VT323', monospace;
+            font-size: 22px;
+            padding: 10px;
+            box-sizing: border-box;
+            outline: none;
+            resize: none;
+        }
+
+        .footer-bar {
+            margin-top: 8px;
+            font-size: 16px;
+            color: #116611;
+            text-align: right;
+        }
+
+        .crt-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%);
+            background-size: 100% 4px;
+            pointer-events: none; z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div class="crt-overlay"></div>
+    <div class="terminal-header" id="termTitle">📟 COMPILING MODULE DATA...</div>
+    <textarea id="codeEditor" placeholder="// ENTER BYTEBEAT EXPRESSION CODE HERE..."></textarea>
+    <div class="footer-bar">STATUS: ONLINE // REAL-TIME COMPILE ACTIVATED</div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const moduleId = urlParams.get('id');
+        
+        const titleEl = document.getElementById('termTitle');
+        const editorEl = document.getElementById('codeEditor');
+
+        if (moduleId) {
+            titleEl.innerText = moduleId === 'master' ? `📟 EDIT MIX: MASTER OUT` : `📟 EDIT CODE: MODULE #${moduleId}`;
+        }
+
+        // Live compile on typing keystroke - transmits code instantly back to index window canvas
+        editorEl.addEventListener('input', () => {
+            if (window.electronBridge && moduleId) {
+                window.electronBridge.send('compile-code', { id: moduleId, code: editorEl.value });
+            }
+        });
+
+        // Safe operational hook receiving states from parent window canvas cache records
+        if (window.electronBridge) {
+            window.electronBridge.on('load-saved-code', (savedCode) => {
+                if (savedCode) editorEl.value = savedCode;
+            });
+        }
+    </script>
+</body>
+</html>
