@@ -92,18 +92,18 @@
            ========================================================================== */
         .inputs-column { 
             position: absolute; 
-            left: 10px;        /* 🛠️ MOVE ALL INPUTS LEFT/RIGHT: Increase to push ports right, decrease to move left */
-            top: 49px;         /* 🛠️ MOVE ALL INPUTS UP/DOWN: Increase to shift ports down, decrease to pull up */
+            left: 10px;        
+            top: 49px;         
             display: flex; 
             flex-direction: column; 
-            gap: 7px;         /* 🛠️ PORT GAP SPACING: Clearance pitch step distance between in1 and in2 rows */
+            gap: 7px;         
             pointer-events: none; 
         }
         
         .outputs-column { 
             position: absolute; 
-            right: 10px;       /* 🛠️ MOVE OUTPUT LEFT/RIGHT: Increase to push out jack left, decrease to move right */
-            top: 49px;         /* 🛠️ MOVE OUTPUT UP/DOWN: Increase to drop out jack down, decrease to lift it up */
+            right: 10px;       
+            top: 49px;         
             text-align: right; 
         }
 
@@ -113,8 +113,7 @@
         .master-box .port-dot { border-color: var(--master-glow); }
         .master-box .port-dot:hover { background: var(--master-glow); }
         
-        /* FIXED VISIBILITY LAYER ELEVATION: 
-           Pushed z-index up to 90 so wires draw completely ABOVE module bodies, but BELOW active open editors! [INDEX] */
+        /* FIXED VISIBILITY LAYER ELEVATION: Wires draw completely ABOVE module bodies, but BELOW active open editors! */
         #cablesCanvas { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 90; }
         
         .control-bar { position: relative; z-index: 210; display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; width: 100%; }
@@ -144,6 +143,7 @@
     <div class="control-bar">
         <div class="control-bar-left">
             <button id="addModuleBtn" style="width: auto;">➕ SPAWN NODE</button>
+            <button id="addVstBtn" style="width: auto;">🎹 SPAWN VST</button>
             <button id="gridSnapToggleBtn" style="width: auto; border-color: #555; color: #555;">🔗 SNAP GRID: OFF</button>
             <select id="gridSizeSelect" title="Select Matrix Grid Pixel Resolution Step Size">
                 <option value="10">10px Grid</option>
@@ -158,8 +158,6 @@
                 <option value="4">Zoom 4.0x</option>
             </select>
             
-            <button id="crtFilterToggleBtn" style="width: auto; border-color: var(--matrix-glow); color: var(--matrix-glow);">📺 CRT SCANLINES: ON</button>
-
             <select id="monochromeColorSelect" title="Select Monochromatic CRT Screen Phosphor Color Coating Profile Matrix">
                 <option value="matrix" selected>🟢 Phosphor Green</option>
                 <option value="amber">🟠 Vintage Amber</option>
@@ -376,133 +374,45 @@
 <!-- END OF PART THREE -->
 
 <!-- START OF PART FOUR -->
-    <script>
-        window.addEventListener('mousemove', (e) => {
-            mouseCurrentX = e.clientX; mouseCurrentY = e.clientY;
-        });
-
-        document.getElementById('addModuleBtn').addEventListener('click', async () => {
-            let nextId;
-            if (availableIdsPool.length > 0) { availableIdsPool.sort((a, b) => a - b); nextId = availableIdsPool.shift(); }
-            else { moduleCount++; nextId = moduleCount; }
-            createModuleBox(nextId); await createModularNode(nextId);
-        });
-
-        document.getElementById('gridSnapToggleBtn').addEventListener('click', () => {
-            snapGridActive = !snapGridActive;
-            const btn = document.getElementById('gridSnapToggleBtn');
-            if (snapGridActive) { btn.innerText = "🔗 SNAP GRID: ON"; btn.style.borderColor = "var(--matrix-glow)"; btn.style.color = "var(--matrix-glow)"; }
-            else { btn.innerText = "🔗 SNAP GRID: OFF"; btn.style.borderColor = "#555"; btn.style.color = "#555"; }
-        });
-
-        document.getElementById('gridSizeSelect').addEventListener('change', (e) => { snapGridSize = parseInt(e.target.value); });
-
-        document.getElementById('playPauseBtn').addEventListener('click', async () => {
-            if (!audioCtx) await initAudio();
-            transportIsPlaying = !transportIsPlaying;
-            const playBtn = document.getElementById('playPauseBtn');
-            if (transportIsPlaying) { playBtn.innerText = "⏸ PAUSE"; playBtn.style.borderColor = "#ffcc00"; playBtn.style.color = "#ffcc00"; }
-            else { playBtn.innerText = "▶ PLAY"; playBtn.style.borderColor = "var(--matrix-glow)"; playBtn.style.color = "var(--matrix-glow)"; }
-            if (modulesRegistry['master']) modulesRegistry['master'].port.postMessage({ type: 'togglePlay', value: transportIsPlaying });
-            for (let id in modulesRegistry) { if (modulesRegistry[id]) modulesRegistry[id].port.postMessage({ type: 'togglePlay', value: transportIsPlaying }); }
-        });
-
-        document.getElementById('stopBtn').addEventListener('click', async () => {
-            if (!audioCtx) return;
-            transportIsPlaying = false;
-            const playBtn = document.getElementById('playPauseBtn');
-            playBtn.innerText = "▶ PLAY"; playBtn.style.borderColor = "var(--matrix-glow)"; playBtn.style.color = "var(--matrix-glow)";
-            document.getElementById('tCounterDisplay').value = 0;
-            if (modulesRegistry['master']) modulesRegistry['master'].port.postMessage({ type: 'stopPlayback' });
-            for (let id in modulesRegistry) { if (modulesRegistry[id]) modulesRegistry[id].port.postMessage({ type: 'stopPlayback' }); }
-        });
-
-        document.getElementById('monochromeColorSelect').addEventListener('change', (e) => {
-            const rootStyle = document.documentElement.style;
-            const chosenTheme = e.target.value;
-            if (chosenTheme === 'matrix') {
-                activeMonochromeColor = '#33ff33'; rootStyle.setProperty('--matrix-glow', '#33ff33'); rootStyle.setProperty('--ui-border', '#33ff33'); rootStyle.setProperty('--master-glow', '#ff00ff');
-            } else if (chosenTheme === 'amber') {
-                activeMonochromeColor = '#ffb000'; rootStyle.setProperty('--matrix-glow', '#ffb000'); rootStyle.setProperty('--ui-border', '#ffb000'); rootStyle.setProperty('--master-glow', '#ff5500');
-            } else if (chosenTheme === 'grayscale') {
-                activeMonochromeColor = '#ffffff'; rootStyle.setProperty('--matrix-glow', '#ffffff'); rootStyle.setProperty('--ui-border', '#888888'); rootStyle.setProperty('--master-glow', '#aaaaaa');
-            }
-        });
-
-        document.getElementById('crtFilterToggleBtn').addEventListener('click', () => {
-            const overlay = document.getElementById('crtOverlay');
-            const btn = document.getElementById('crtFilterToggleBtn');
-            if (overlay.style.display === 'none') {
-                overlay.style.display = 'block'; btn.innerText = "📺 CRT SCANLINES: ON"; btn.style.borderColor = 'var(--matrix-glow)'; btn.style.color = 'var(--matrix-glow)';
-            } else {
-                overlay.style.display = 'none'; btn.innerText = "📺 CRT SCANLINES: OFF"; btn.style.borderColor = '#555'; btn.style.color = '#555';
-            }
-        });
-
-        document.getElementById('zoomLevelSelect').addEventListener('change', (e) => {
-            currentZoom = parseFloat(e.target.value);
-            cameraWorld.style.transformOrigin = "50% 50%";
-            updateCameraMatrix();
-        });
-
-        window.addEventListener('keydown', (e) => { if (e.code === 'Space' && !isSpacebarPressed) { isSpacebarPressed = true; workspace.style.cursor = 'grab'; } });
-        window.addEventListener('keyup', (e) => { if (e.code === 'Space') { isSpacebarPressed = false; isPanningMouseActive = false; workspace.style.cursor = 'default'; } });
-        workspace.addEventListener('mousedown', (e) => { if (isSpacebarPressed && e.button === 0) { isPanningMouseActive = true; workspace.style.cursor = 'grabbing'; startPanMouseX = e.clientX - panOffsetX; startPanMouseY = e.clientY - panOffsetY; updateCameraMatrix(); } });
-        window.addEventListener('mousemove', (e) => { if (isPanningMouseActive) { panOffsetX = e.clientX - startPanMouseX; panOffsetY = e.clientY - startPanMouseY; updateCameraMatrix(); } });
-        window.addEventListener('mouseup', () => { if (isPanningMouseActive) { isPanningMouseActive = false; if (isSpacebarPressed) workspace.style.cursor = 'grab'; } });
-
-        workspace.addEventListener('mousedown', (e) => {
-            if (!e.target.classList.contains('port-dot') || e.button !== 0) return;
-            const dot = e.target;
-            activeWireSource = { type: dot.getAttribute('data-type'), node: dot.getAttribute('data-node'), index: parseInt(dot.getAttribute('data-index')) };
-            dot.style.background = '#fff';
-        });
-
-        window.addEventListener('mouseup', (e) => {
-            if (!activeWireSource) return;
-            const targetDot = e.target.classList.contains('port-dot') ? e.target : document.elementFromPoint(e.clientX, e.clientY);
-            if (targetDot && targetDot.classList.contains('port-dot')) {
-                const targetType = targetDot.getAttribute('data-type');
-                const targetNode = targetDot.getAttribute('data-node');
-                const targetIdx = parseInt(targetDot.getAttribute('data-index'));
-                if (activeWireSource.node !== targetNode && activeWireSource.type !== targetType) {
-                    const outNode = activeWireSource.type === 'output' ? activeWireSource.node : targetNode;
-                    const inNode = activeWireSource.type === 'input' ? activeWireSource.node : targetNode;
-                    const inIdx = activeWireSource.type === 'input' ? activeWireSource.index : targetIdx;
-                    if (modulesRegistry[outNode] && modulesRegistry[inNode]) {
-                        modulesRegistry[outNode].connect(modulesRegistry[inNode], 0, inIdx);
-                        cableConnections.push({ fromNode: outNode, fromPort: 0, toNode: inNode, toPort: inIdx });
-                    }
-                }
-            }
-            const anchorDot = activeWireSource.type === 'output' ? document.getElementById(`port-out-${activeWireSource.node}`) : document.getElementById(`port-in-${activeWireSource.node}-${activeWireSource.index}`);
-            if (anchorDot) anchorDot.style.background = '#000';
-            activeWireSource = null;
-        });
-    </script>
+    <!-- 🔌 SHARED FRONT-END APP CONTROLLER LOADER STRIP -->
+    <script src="app-renderer.js"></script>
 <!-- END OF PART FOUR -->
-
 <!-- START OF PART FIVE -->
     <script>
+        /* ==========================================================================
+           ⚙️ CONTEXT MENU RENDERING SELECTION MATRIX
+           ========================================================================== */
         workspace.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             if (e.target.classList.contains('port-dot')) {
-                const dot = e.target; const type = dot.getAttribute('data-type'); const nodeName = dot.getAttribute('data-node'); const portIdx = parseInt(dot.getAttribute('data-index'));
+                const dot = e.target; 
+                const type = dot.getAttribute('data-type'); 
+                const nodeName = dot.getAttribute('data-node'); 
+                const portIdx = parseInt(dot.getAttribute('data-index'));
                 let targetCableIdx = -1;
+                
                 for (let i = cableConnections.length - 1; i >= 0; i--) {
                     const c = cableConnections[i];
-                    if ((type === 'output' && c.fromNode === nodeName) || (type === 'input' && c.toNode === nodeName && c.toPort === portIdx)) { targetCableIdx = i; break; }
+                    if ((type === 'output' && c.fromNode === nodeName) || (type === 'input' && c.toNode === nodeName && c.toPort === portIdx)) { 
+                        targetCableIdx = i; 
+                        break; 
+                    }
                 }
                 if (targetCableIdx !== -1) {
                     const wire = cableConnections[targetCableIdx];
-                    if (modulesRegistry[wire.fromNode]) { try { modulesRegistry[wire.fromNode].disconnect(modulesRegistry[wire.toNode], 0, wire.toPort); } catch(err) { modulesRegistry[wire.fromNode].disconnect(); } }
+                    if (modulesRegistry[wire.fromNode]) { 
+                        try { modulesRegistry[wire.fromNode].disconnect(modulesRegistry[wire.toNode], 0, wire.toPort); } 
+                        catch(err) { modulesRegistry[wire.fromNode].disconnect(); } 
+                    }
                     cableConnections.splice(targetCableIdx, 1);
                 }
                 return;
             }
+            
             const nodeBox = e.target.closest('.node-box, .master-box, .terminal-box');
             if (nodeBox) {
-                const menu = document.getElementById('moduleContextMenu'); const wRect = workspace.getBoundingClientRect(); 
+                const menu = document.getElementById('moduleContextMenu'); 
+                const wRect = workspace.getBoundingClientRect(); 
                 const termBox = document.getElementById('canvasTerminalBox');
                 
                 if (nodeBox.classList.contains('terminal-box')) {
@@ -511,10 +421,10 @@
                     rightClickedModuleId = nodeBox.id.replace('mod_', '');
                 }
                 
-                menu.style.left = (e.clientX - wRect.left) + "px"; menu.style.top = (e.clientY - wRect.top) + "px"; menu.style.display = 'block';
-                const isThisNodeTermOpen = (termBox.style.display === 'block' && termBox.getAttribute('data-current-node') === rightClickedModuleId);
+                menu.style.left = (e.clientX - wRect.left) + "px"; 
+                menu.style.top = (e.clientY - wRect.top) + "px"; 
+                menu.style.display = 'block';
                 
-                // --- ⚙️ SEGREGATED RIGHT-CLICK SELECTION CONTEXTS ---
                 if (nodeBox.classList.contains('terminal-box')) {
                     document.getElementById('rowRename').style.display = 'none';
                     document.getElementById('ctxOpenCode').style.display = 'none';
@@ -536,15 +446,42 @@
             }
         });
 
-        document.getElementById('inputNewName').addEventListener('input', (e) => {
-            if (rightClickedModuleId) {
-                const box = document.getElementById(`mod_${rightClickedModuleId}`);
-                if (box) {
-                    const titleEl = box.querySelector('.node-title-text, .master-header-text');
-                    if (titleEl) titleEl.innerText = e.target.value.toUpperCase();
-                }
+        function fitEditorHeightToCode() {
+            const termBox = document.getElementById('canvasTerminalBox');
+            const editorEl = document.getElementById('canvasTermTextArea');
+            let lineCount = editorEl.value.split('\n').length;
+            let extraLines = Math.max(0, lineCount - 1);
+            let targetChassisHeight = 100 + (extraLines * 20);
+            termBox.style.height = targetChassisHeight + "px";
+        }
+
+        let activeEditorTargetId = null;
+        function toggleOnCanvasEditor(id) {
+            const termBox = document.getElementById('canvasTerminalBox');
+            const titleEl = document.getElementById('canvasTermHeaderTitle');
+            const editorEl = document.getElementById('canvasTermTextArea');
+            const box = document.getElementById(`mod_${id}`) || document.getElementById('mod_master');
+
+            if (termBox.style.display === 'block' && activeEditorTargetId === id) {
+                termBox.style.display = 'none'; 
+                return;
             }
-        });
+
+            activeEditorTargetId = id;
+            termBox.setAttribute('data-current-node', id);
+            titleEl.innerText = id === 'master' ? "EDIT CODE: MASTER OUT" : `EDIT CODE: MODULE #${id}`;
+            
+            let currentCode = box.getAttribute('data-saved-code');
+            if (!currentCode) currentCode = id === 'master' ? "in1 + in2" : "t";
+            editorEl.value = currentCode;
+
+            if (box) {
+                termBox.style.left = box.style.left;
+                termBox.style.top = (parseInt(box.style.top) + 135) + "px"; 
+            }
+            termBox.style.display = 'block';
+            fitEditorHeightToCode();
+        }
 
         document.getElementById('ctxDelete').addEventListener('click', () => {
             if (rightClickedModuleId && rightClickedModuleId !== 'master') {
@@ -565,41 +502,15 @@
             document.getElementById('moduleContextMenu').style.display = 'none';
         });
 
-        function fitEditorHeightToCode() {
-            const termBox = document.getElementById('canvasTerminalBox');
-            const editorEl = document.getElementById('canvasTermTextArea');
-            let lineCount = editorEl.value.split('\n').length;
-            let extraLines = Math.max(0, lineCount - 1);
-            let targetChassisHeight = 100 + (extraLines * 20);
-            termBox.style.height = targetChassisHeight + "px";
-        }
-
-        let activeEditorTargetId = null;
-        function toggleOnCanvasEditor(id) {
-            const termBox = document.getElementById('canvasTerminalBox');
-            const titleEl = document.getElementById('canvasTermHeaderTitle');
-            const editorEl = document.getElementById('canvasTermTextArea');
-            const box = document.getElementById(`mod_${id}`) || document.getElementById('mod_master');
-
-            if (termBox.style.display === 'block' && activeEditorTargetId === id) {
-                termBox.style.display = 'none'; return;
+        document.getElementById('inputNewName').addEventListener('input', (e) => {
+            if (rightClickedModuleId) {
+                const box = document.getElementById(`mod_${rightClickedModuleId}`);
+                if (box) {
+                    const titleEl = box.querySelector('.node-title-text, .master-header-text');
+                    if (titleEl) titleEl.innerText = e.target.value.toUpperCase();
+                }
             }
-
-            activeEditorTargetId = id;
-            termBox.setAttribute('data-current-node', id);
-            titleEl.innerText = id === 'master' ? "EDIT CODE: MASTER OUT" : `EDIT CODE: MODULE #${id}`;
-            
-            let currentCode = box.getAttribute('data-saved-code');
-            if (!currentCode) currentCode = id === 'master' ? "in1 + in2" : "t";
-            editorEl.value = currentCode;
-
-            if (box) {
-                termBox.style.left = box.style.left;
-                termBox.style.top = (parseInt(box.style.top) + 135) + "px"; 
-            }
-            termBox.style.display = 'block';
-            fitEditorHeightToCode();
-        }
+        });
 
         document.getElementById('canvasTermTextArea').addEventListener('input', (e) => {
             if (activeEditorTargetId && modulesRegistry[activeEditorTargetId]) {
@@ -611,9 +522,12 @@
         });
     </script>
 <!-- END OF PART FIVE -->
-
 <!-- START OF PART SIX -->
     <script>
+        /* ==========================================================================
+           📐 ON-CANVAS COMPONENT GENERATOR OBJECT FACTORIES
+           - Pure DOM injection routines completely stripped of legacy drag event listeners.
+           ========================================================================== */
         (function initWidthResizerPhysics() {
             const handle = document.getElementById('canvasTermResizeHandle');
             const termBox = document.getElementById('canvasTerminalBox');
@@ -640,24 +554,23 @@
             box.style.left = `50px`; box.style.top = `100px`;
             
             box.innerHTML = `
-                <div class="node-header">
-                    <span class="node-title-text">MODULE #${id}</span>
-                </div>
+                <div class="node-header"><span class="node-title-text">MODULE #${id}</span></div>
                 <div class="ports-container">
                     <div class="inputs-column">
                         <div><span class="port-dot" id="port-in-${id}-0" data-type="input" data-node="${id}" data-index="0"></span> in1</div>
                         <div><span class="port-dot" id="port-in-${id}-1" data-type="input" data-node="${id}" data-index="1"></span> in2</div>
                     </div>
-                    <div class="outputs-column">
-                        <div>out <span class="port-dot" id="port-out-${id}" data-type="output" data-node="${id}" data-index="0"></span></div>
-                    </div>
+                    <div class="outputs-column"><div>out <span class="port-dot" id="port-out-${id}" data-type="output" data-node="${id}" data-index="0"></span></div></div>
                 </div>
             `;
-            makeDraggable(box); cameraWorld.appendChild(box); resizeCanvas();
+            if (typeof makeDraggable === 'function') makeDraggable(box); 
+            cameraWorld.appendChild(box); 
+            resizeCanvas();
         }
 
         function removeModuleBox(id) {
-            const element = document.getElementById(`mod_${id}`); if (element) element.remove();
+            const element = document.getElementById(`mod_${id}`); 
+            if (element) element.remove();
             if (!availableIdsPool.includes(id)) availableIdsPool.push(id);
             cableConnections = cableConnections.filter(c => {
                 const match = c.fromNode === String(id) || c.toNode === String(id);
@@ -666,64 +579,6 @@
             });
             if (modulesRegistry[id]) { modulesRegistry[id].disconnect(); delete modulesRegistry[id]; }
         }
-
-        /* 🕹️ UNBREAKABLE REAL-TIME VIEWPORT DRAG HANDLER
-           - Tracks active element grabs via isolated global references.
-           - FIX: Factors in active panning positions dynamically to keep modules stuck to the mouse during scrolling! */
-        function makeDraggable(el) {
-            el.onmousedown = (e) => {
-                if (e.target.tagName === 'BUTTON' || e.target.classList.contains('port-dot') || e.target.closest('#moduleContextMenu') || isSpacebarPressed || e.target.tagName === 'TEXTAREA' || e.target.id === 'canvasTermResizeHandle') return;
-                if (e.target === workspace) return;
-                if (e.target.tagName === 'INPUT') return; 
-                
-                document.getElementById('moduleContextMenu').style.display = 'none';
-                e.preventDefault();
-                
-                currentlyDraggingElement = el;
-                
-                // FIX: Store the click offset relative to the absolute local space of the cameraWorld canvas
-                dragGrabX = (e.clientX / currentZoom) - panOffsetX - el.offsetLeft;
-                dragGrabY = (e.clientY / currentZoom) - panOffsetY - el.offsetTop;
-                
-                document.onmouseup = () => { 
-                    currentlyDraggingElement = null; 
-                    document.onmouseup = null; 
-                    document.onmousemove = null; 
-                };
-                
-                document.onmousemove = (ev) => {
-                    ev.preventDefault();
-                    updateDraggingModulePosition(ev.clientX, ev.clientY);
-                };
-            };
-        }
-
-        /* 📐 VIEWPORT COMPENSATED COORDINATE CALCULATION MATRIX
-           - Combines mouse coordinates, zoom settings, and active panning offsets.
-           - Eliminates drift entirely, making scrolling completely seamless while dragging! */
-        function updateDraggingModulePosition(clientX, clientY) {
-            if (!currentlyDraggingElement) return;
-            
-            // FIX: Subtract the active scrolling offsets in real-time to keep the module anchored to the mouse pointer
-            let targetLeft = (clientX / currentZoom) - panOffsetX - dragGrabX;
-            let targetTop = (clientY / currentZoom) - panOffsetY - dragGrabY;
-
-            let maxTop = 1280 - currentlyDraggingElement.offsetHeight;  
-            let maxLeft = 2560 - currentlyDraggingElement.offsetWidth;  
-
-            if (targetTop < 5) targetTop = 5; if (targetTop > maxTop) targetTop = maxTop;
-            if (targetLeft < 5) targetLeft = 5; if (targetLeft > maxLeft) targetLeft = maxLeft;
-
-            if (snapGridActive) {
-                targetTop = Math.round(targetTop / snapGridSize) * snapGridSize;
-                targetLeft = Math.round(targetLeft / snapGridSize) * snapGridSize;
-            }
-            currentlyDraggingElement.style.top = targetTop + "px"; 
-            currentlyDraggingElement.style.left = targetLeft + "px";
-        }
-
-        makeDraggable(document.getElementById('mod_master'));
-        makeDraggable(document.getElementById('canvasTerminalBox'));
     </script>
 </body>
 </html>
